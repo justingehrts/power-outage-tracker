@@ -4,7 +4,7 @@ Polls Central Ohio utility outage maps every 15 minutes, stores the results as C
 `data` branch, and (later) shows them in a Streamlit dashboard. See `CLAUDE.md` for the full design.
 
 ## Status
-Phase 1: AEP Ohio summary + county + ZIP collector. Other utilities and the dashboard come later.
+Phases 1-2: AEP Ohio, South Central Power, Consolidated Electric and 7 NISC-hosted co-ops (10 sources). The dashboard comes next.
 
 ## Run locally
 ```bash
