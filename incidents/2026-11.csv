@@ -1,0 +1,2 @@
+polled_at,utility,incident_id,lat,lon,x_raw,y_raw,cust_out,masked,n_out,crew_status,cause,start_time,etr,planned
+2026-11-06T23:23:24Z,ure,390222,,,25027,64851,1,0,1,,,2026-11-06T21:12:38Z,,0
