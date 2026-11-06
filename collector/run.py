@@ -9,18 +9,26 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from collector import aep
+from collector import aep, coop_a, nisc
+from collector.common import new_session
 
 SUMMARY_COLS = ["polled_at", "utility", "source_updated_at", "cust_out", "cust_out_exact",
                 "cust_served", "outages", "ok", "error"]
 AREA_COLS = ["polled_at", "utility", "area_type", "area_id", "area_name", "cust_out",
              "masked", "cust_served", "n_out", "etr"]
+INCIDENT_COLS = ["polled_at", "utility", "incident_id", "lat", "lon", "x_raw", "y_raw",
+                 "cust_out", "masked", "n_out", "crew_status", "cause", "start_time", "etr",
+                 "planned"]
 REF_COLS = ["utility", "area_type", "area_id", "area_name", "cust_served", "updated_at"]
 STATUS_COLS = ["utility", "last_success", "last_failure", "consecutive_failures",
                "last_error", "last_updated_ms"]
 
-# name -> fetch function. Phase 2 adds co-op sources here.
+# utility key -> function(session) returning the parsed result. Each runs in isolation.
 SOURCES = {aep.UTILITY: aep.fetch}
+for _key, _base in coop_a.COOPS.items():
+    SOURCES[_key] = lambda session, _b=_base: coop_a.fetch(session, _b)
+for _key, (_name, _served) in nisc.COOPS.items():
+    SOURCES[_key] = lambda session, _n=_name, _e=_served: nisc.fetch(session, _n, _e)
 
 
 def iso(dt):
@@ -60,7 +68,7 @@ def run(data_dir, now=None, sources=None):
     status_path = data_dir / "status.csv"
     status = read_status(status_path)
     sources = sources or SOURCES
-    session = aep.new_session()
+    session = new_session()
     failures = 0
 
     for name, fetch in sources.items():
@@ -77,18 +85,22 @@ def run(data_dir, now=None, sources=None):
                      **res["summary"]}])
                 append_rows(data_dir / "areas" / f"{month}.csv", AREA_COLS,
                             [{"polled_at": polled, "utility": name, **a} for a in res["areas"]])
+                append_rows(data_dir / "incidents" / f"{month}.csv", INCIDENT_COLS,
+                            [{"polled_at": polled, "utility": name, **i}
+                             for i in res.get("incidents", [])])
                 st["last_updated_ms"] = str(res["updated_ms"])
                 print(f"[{name}] OK: {res['summary']['cust_out']} out, "
                       f"{len(res['areas'])} areas with outages")
-            # Reference table is refreshed once a day (overwrite, all utilities' rows kept)
+            # Reference table: refreshed once a day per utility (other utilities' rows are kept)
             ref_path = data_dir / "reference" / "areas.csv"
-            if (not ref_path.exists()
-                    or datetime.fromtimestamp(ref_path.stat().st_mtime, timezone.utc).date()
-                    != now.date()):
-                keep = []
-                if ref_path.exists():
-                    with ref_path.open(newline="") as f:
-                        keep = [r for r in csv.DictReader(f) if r["utility"] != name]
+            existing = []
+            if ref_path.exists():
+                with ref_path.open(newline="") as f:
+                    existing = list(csv.DictReader(f))
+            fresh_today = any(r["utility"] == name and r["updated_at"][:10] == polled[:10]
+                              for r in existing)
+            if res["reference"] and not fresh_today:
+                keep = [r for r in existing if r["utility"] != name]
                 overwrite_rows(ref_path, REF_COLS, keep + [
                     {"utility": name, "updated_at": polled, **r} for r in res["reference"]])
             st.update(last_success=polled, consecutive_failures="0", last_error="")

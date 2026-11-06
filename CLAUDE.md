@@ -93,7 +93,8 @@ Plain JSON, no snapshot chasing. Vendor not identified.
 
 - `GET {base}/data/outageSummary.json`: `customersOutNow`, `customersAffected`, `customersRestored`, `customersServed`, `updateTime` (ISO with offset), and `hourlyCustomersOut[]` (`customers`, `eventTime`): **49 hourly points (about 48 h)**. Use these to backfill gaps after missed polls.
 - `GET {base}/data/boundaries.json`: `[{name: "Counties", boundaries: [{name, customersOutNow, customersAffected, customersServed}]}]`. Consolidated's was empty when sampled.
-- `GET {base}/data/outages.json` and `/data/outagePolygons.json`: incident data. **Both were empty when sampled (`[]`), so the format is unknown.** Log raw JSON to `raw_samples/` the first time they're non-empty, then write the parser.
+- `GET {base}/data/outages.json`: list of incidents (format seen 2026-11-06 on South Central; sample in `tests/fixtures/southcentral_outages.json`): `outageRecID`, `outagePoint.lat/lng` (real lat/lon), `outageStartTime`, `estimatedTimeOfRestoral`, `customersOutNow`, `crewAssigned`, `cause`, `isPlanned`. Times carry a local offset; the collector converts to UTC.
+- `GET {base}/data/outagePolygons.json`: seen with empty `points`, so not used. Consolidated's files were still empty on 2026-11-06 (its summary works).
 
 ---
 
@@ -118,6 +119,8 @@ Optional (western Ohio): `darkerec`, `midwestrec`. **Do not use `lrec`**: that i
 
 - `summary.json`: `totalServed`; `outages[]` with `id`, `nbrOut`, `timeOff` (Unix ms), `planned` (bool), `x`, `y`; `regionDataSets[]` with `id`, `description`, and `regions[]` (`id`, `numberOut`, `numberServed`).
 - **`x`/`y` are not lat/lon** (e.g. `x: 126537, y: 37311`), and the coordinate system is unknown. Investigate: check `config.json` for a spatial reference or offset, and compare against where the live map draws the point. Until it's solved, store raw `x`/`y` and skip mapping NISC points.
+- **Total customers out:** don't trust the incident list alone. On 2026-11-06 Logan REC had a region with 1 customer out and an empty `outages[]`. The collector uses the largest of the incident sum and each region dataset's sum. Region sums come in a bit under `totalServed` (some customers aren't in any region).
+- Each co-op's `totalServed` is checked against the table above (±20%) to catch wrong-utility mixups.
 - No history is provided. Build the time series from polls.
 - These hosts don't block scripts, but the co-op websites themselves may (e.g. ure.com returns 403).
 
