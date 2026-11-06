@@ -1,0 +1,6 @@
+requests
+pandas
+polyline
+streamlit
+plotly
+pytest
