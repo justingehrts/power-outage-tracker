@@ -1,11 +1,11 @@
 utility,last_success,last_failure,consecutive_failures,last_error,last_updated_ms
-aep_ohio,2026-11-06T23:23:24Z,,0,,1794004528000
-south_central_power,2026-11-06T23:23:24Z,,0,,2026-11-06T23:20:26Z
-consolidated,2026-11-06T23:23:24Z,,0,,2026-11-06T23:23:01Z
-ure,2026-11-06T23:23:24Z,,0,,1794007361499
-energy_coop,2026-11-06T23:23:24Z,,0,,1794007339110
-logan_rec,2026-11-06T23:23:24Z,,0,,1794007239683
-frontier_power,2026-11-06T23:23:24Z,,0,,1794007345302
-gm_energy,2026-11-06T23:23:24Z,,0,,1794007384423
-pioneer,2026-11-06T23:23:24Z,,0,,1794007122086
-buckeye_rec,2026-11-06T23:23:24Z,,0,,1794007135851
+aep_ohio,2026-11-07T06:14:46Z,,0,,1794031532000
+south_central_power,2026-11-06T23:23:24Z,2026-11-07T06:14:46Z,1,"SourceError: https://outage.southcentralpower.com/data/outageSummary.json: HTTPSConnectionPool(host='outage.southcentralpower.com', port=443): Max retries exceeded with url: /data/outageSummary.json (Caused by ConnectTimeoutError(<HTTPSConnection(host='outage.southcentralpower.com', port=443) at 0x7",2026-11-06T23:20:26Z
+consolidated,2026-11-07T06:14:46Z,,0,,2026-11-07T06:16:04Z
+ure,2026-11-07T06:14:46Z,,0,,1794032130200
+energy_coop,2026-11-07T06:14:46Z,,0,,1794032159460
+logan_rec,2026-11-07T06:14:46Z,,0,,1794031913696
+frontier_power,2026-11-07T06:14:46Z,,0,,1794031992380
+gm_energy,2026-11-07T06:14:46Z,,0,,1794032167644
+pioneer,2026-11-07T06:14:46Z,,0,,1794032124389
+buckeye_rec,2026-11-07T06:14:46Z,,0,,1794032103015
