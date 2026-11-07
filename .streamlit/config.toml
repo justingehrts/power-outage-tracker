@@ -1,0 +1,5 @@
+# Dark, high-contrast default for newsroom/TV readability.
+# Viewers can still switch themes from the app's Settings menu.
+[theme]
+base = "dark"
+primaryColor = "#4dabf7"
