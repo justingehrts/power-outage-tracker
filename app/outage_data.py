@@ -3,6 +3,7 @@
 Data comes from CSVs on the `data` branch (over HTTP) or from a local folder (for testing).
 """
 import io
+import json
 from datetime import timedelta
 from pathlib import Path
 
@@ -142,3 +143,138 @@ def month_list(now, days=7, custom_start=None):
 
 def utc_now():
     return pd.Timestamp.now(tz="UTC")
+
+
+# ---------------------------------------------------------------- Maps (by county)
+ASSETS = Path(__file__).parent / "assets"
+
+# One fixed colour per utility so the map and legend stay consistent
+COLORS = {
+    "aep_ohio": "#4C78A8", "south_central_power": "#F58518", "ure": "#54A24B",
+    "energy_coop": "#E45756", "logan_rec": "#72B7B2", "frontier_power": "#EECA3B",
+    "gm_energy": "#B279A2", "pioneer": "#9D755D", "buckeye_rec": "#FF9DA6",
+    "consolidated": "#BAB0AC",
+}
+
+
+def county_key(name):
+    """Normalise county names so 'HARDIN', 'Hardin' and 'Hardin County' all match."""
+    return str(name).upper().replace(" COUNTY", "").strip()
+
+
+def load_geojson():
+    return json.loads((ASSETS / "ohio_counties.geojson").read_text())
+
+
+def county_index(geojson=None):
+    """DataFrame [fips, name, key] for Ohio's 88 counties."""
+    feats = (geojson or load_geojson())["features"]
+    return pd.DataFrame([{"fips": f["id"], "name": f["properties"]["name"],
+                          "key": county_key(f["properties"]["name"])} for f in feats])
+
+
+def load_zip_to_county():
+    """{'43001': 'LICKING', ...}: each Ohio ZIP -> the county covering most of it."""
+    z = pd.read_csv(ASSETS / "zip_to_county.csv", dtype=str)
+    return {r.zip: county_key(r.county_name) for r in z.itertuples()}
+
+
+def load_reference(source):
+    df = _read_csv(source, "reference/areas.csv")
+    return df if df is not None else pd.DataFrame(
+        columns=["utility", "area_type", "area_id", "area_name", "cust_served", "updated_at"])
+
+
+def load_areas(source, months):
+    frames = [f for f in (_read_csv(source, f"areas/{m}.csv") for m in months) if f is not None]
+    if not frames:
+        return pd.DataFrame(columns=["polled_at", "utility", "area_type", "area_id", "area_name",
+                                     "cust_out", "masked", "cust_served", "n_out", "etr"])
+    df = pd.concat(frames, ignore_index=True)
+    df["polled_at"] = _times(df["polled_at"])
+    return df
+
+
+def _to_counties(rows, value_col, county_utilities, zip_map):
+    """Turn area rows into [utility, county, value]. Utilities that report counties use those;
+    the others (ZIP-only co-ops) are placed by mapping each ZIP to its main county."""
+    out = []
+    for u, g in rows.groupby("utility"):
+        if u in county_utilities:
+            g = g[g["area_type"] == "county"]
+            keys = g["area_name"].map(county_key)
+        else:
+            g = g[g["area_type"] == "zip"]
+            keys = g["area_id"].astype(str).map(zip_map)   # ZIPs we cannot place are dropped
+        part = pd.DataFrame({"utility": u, "county": keys, "value": g[value_col]}).dropna()
+        out.append(part.groupby(["utility", "county"], as_index=False)["value"].sum())
+    cols = ["utility", "county", value_col]
+    if not out:
+        return pd.DataFrame(columns=cols)
+    return pd.concat(out, ignore_index=True).rename(columns={"value": value_col})
+
+
+def served_by_county(reference, zip_map, valid_counties):
+    """Customers each tracked utility serves in each Ohio county."""
+    county_utils = set(reference.loc[reference["area_type"] == "county", "utility"])
+    df = _to_counties(reference, "cust_served", county_utils, zip_map)
+    df = df[df["county"].isin(valid_counties) & (df["cust_served"] > 0)]
+    return df.reset_index(drop=True)
+
+
+def outages_by_county(areas, summary, reference, zip_map, valid_counties):
+    """Customers out per utility per county, from each utility's latest good reading."""
+    ok = summary[summary["ok"] == 1]
+    latest = ok.sort_values("polled_at").groupby("utility").tail(1)[["utility", "polled_at"]]
+    cur = areas.merge(latest, on=["utility", "polled_at"])   # only rows from that same poll
+    county_utils = set(reference.loc[reference["area_type"] == "county", "utility"])
+    df = _to_counties(cur, "cust_out", county_utils, zip_map)
+    return df[df["county"].isin(valid_counties)].reset_index(drop=True)
+
+
+def _detail(group, col):
+    g = group.sort_values(col, ascending=False)
+    return "<br>".join(f"{display_name(u)}: {int(v):,}" for u, v in zip(g["utility"], g[col]))
+
+
+BIG_UTILITIES = {"aep_ohio"}   # investor-owned; co-ops are shown ahead of these (see below)
+COOP_MIN_SHARE = 0.20          # a co-op shows if it serves at least this share of tracked customers
+MIN_CUSTOMERS = 100            # fewer than this in a county is fringe service: does not colour it
+
+
+def main_utility(g):
+    """Which utility colours a county. Co-ops with a real presence win over the big utility
+    (otherwise AEP would hide every co-op); utilities with only a handful of customers are ignored."""
+    g = g[g["cust_served"] >= MIN_CUSTOMERS]
+    if g.empty:
+        return None
+    share = g["cust_served"] / g["cust_served"].sum()
+    coops = g[~g["utility"].isin(BIG_UTILITIES) & (share >= COOP_MIN_SHARE)]
+    pool = coops if not coops.empty else g
+    return pool.loc[pool["cust_served"].idxmax(), "utility"]
+
+
+def territory_table(served, index):
+    """Per county: the utility that colours it, and a hover list of every tracked utility."""
+    rows = []
+    for _, c in index.iterrows():
+        g = served[served["county"] == c["key"]]
+        rows.append({"fips": c["fips"], "county": c["name"], "key": c["key"],
+                     "main": main_utility(g) if not g.empty else None,
+                     "detail": _detail(g, "cust_served") if not g.empty else "No tracked utility"})
+    return pd.DataFrame(rows)
+
+
+def percent_out_table(served, out, index):
+    """Per county: customers out and served (all tracked utilities combined) and percent out."""
+    tot_s = served.groupby("county")["cust_served"].sum()
+    tot_o = out.groupby("county")["cust_out"].sum()
+    rows = []
+    for _, c in index.iterrows():
+        s_, o_ = tot_s.get(c["key"], 0), tot_o.get(c["key"], 0)
+        g = out[(out["county"] == c["key"]) & (out["cust_out"] > 0)]
+        rows.append({"fips": c["fips"], "county": c["name"], "cust_out": int(o_),
+                     "cust_served": int(s_),
+                     "pct_out": (o_ / s_ * 100) if s_ else None,
+                     "detail": _detail(g, "cust_out") if len(g) else "None out"})
+    return pd.DataFrame(rows)
