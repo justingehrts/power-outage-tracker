@@ -126,10 +126,45 @@ Optional (western Ohio): `darkerec`, `midwestrec`. **Do not use `lrec`**: that i
 
 ---
 
-## Known gaps (not yet sourced)
+## Sources found but not built yet (researched 2026-11-07)
 
-| Utility | Status |
-|---|---|
+All checked with one polite request each, identifying ourselves as the tracker. None of these are built; build them as Phase 6.
+
+### AES Ohio: FOUND. Plain XML, no Kubra
+- `GET https://myprofile.aes-ohio.com/DATA/DPLOMSDATA.xml` (about 4 KB; the file the public map at `myprofile.aes-ohio.com/Outages/Outages.html` loads; "DPL" is the old Dayton Power & Light name). Updates about every 15 min.
+- Structure: root `<Incidents>` with repeated flat elements:
+  - `<Message>`: `TotalOut` (customers out, exact), `Outageat` (refresh time, **Eastern local, 12-hour**, e.g. `11/6/2026 7:20:42 PM`; convert to UTC).
+  - `<Markers>` (one per incident): `LAT`, `LNG` (real lat/lon), `TOTALCUSTS`, `INCIDENTID`, `COUNTY`, `IND` (only `D` seen), `OutageTime` and `EstimateTime` (Eastern local, `MM/DD/YYYY hh:mm AM/PM`).
+  - `<Counties>` (one per county, 24 counties incl. Madison, Fayette, Champaign, Union, Delaware, Logan): `County`, `TotOut`.
+- Checked 2026-11-07: incident `TOTALCUSTS` sum = `TotalOut` = county `TotOut` sum (13).
+- **No customers-served figure in the feed** (the page says "more than 540,000"). Percent-out needs a served number from elsewhere, so treat it as unknown, not zero. The dashboard must tolerate a blank `cust_served`.
+- Do not use the `WebOutage/Default.aspx?t=CO` or `t=RO` links: those are per-customer "check/report my outage" forms.
+
+### FirstEnergy Ohio (Ohio Edison, Illuminating Co., Toledo Edison): FOUND. Kubra, same platform as AEP
+- Map host: `https://outages-oh.firstenergycorp.com/` (from `outages.firstenergycorp.com/oh.html`). The old 503 is gone; it returned 200 to a script.
+- Instance `6c715f0e-bbec-465f-98cc-0b81623744be`, view `db9c3f02-0a06-4672-a357-0f676eb75bfa`. `currentState` and `configuration` work exactly as in Source 1.
+- **Differences from AEP (read paths from the config, do not hardcode):** the summary is `public/summary-7/data.json` (not `summary-1`); the config lists a single report (`public/reports/fd1bf760-…_report.json`, about 250 KB) that is **nested**: `file_data.areas[0]` is the state (OHIO), its `areas[]` are 43 counties (`key: "county"`, `cust_a`, `cust_s`, `n_out`), and each county has `areas[]` townships.
+- Ohio totals on 2026-11-07: 2,104,691 served. Counties near the Columbus market: Marion 21,898, Morrow 5,765, Delaware 3,693, Franklin 2,322, Knox 421, plus Richland, Ashland and Crawford.
+- Incident tiles use the same `cluster-5` style path (not `cluster-1`); look up the layer in the config before crawling.
+
+### Mid-Ohio Energy: FOUND the map; no incident format yet
+- Their map is `https://www.ismymeteron.com/` (linked from `midohioenergy.com/outage`).
+- `GET /Home/UpdatePushpin` returns incidents as XML. It returned an empty `<NewDataSet />` on 2026-11-07 (no outages), so **the incident format is unknown**. Log the raw XML the first time it is non-empty, then write the parser (same approach as South Central's `outages.json`).
+- `GET /Content/Configuration/service_area.txt`: the territory outline as one polygon (3,043 points, `lon,lat` lines after a `Polygon,Color=…` header, about -84.08..-82.86 / 40.45..40.83, a north-central Ohio band). Useful for the territory map.
+- No customers-served figure found yet.
+
+### City of Columbus Division of Power: NOT FOUND
+- Plain script requests get 403 (bot filter), but a normal browser loads the page fine. The page (`columbus.gov/Services/Columbus-Water-Power/Power-Outage-Map`) has **no embedded outage map or data call**. Its only ArcGIS link is "Potential City Electric Service" (an address lookup for whether a home is in the city electric service area), not outages.
+- Next step needs a person: open the page in a browser with DevTools (Network tab, filter Fetch/XHR) and see whether an outage map appears and what it loads. If it needs a headless browser to get past the bot filter, that is Justin's decision (and check the city's terms); do not try to get around the block.
+
+### Municipal systems: no public outage map found
+- Westerville Electric Division: phone only, (614) 901-6700. AMP (the municipal wholesale group) lists no member outage maps. Search results disagreed on whether Galion and Bucyrus are municipal or AEP; verify before relying on either.
+- The aggregator poweroutage.us carries some of these (Westerville, Columbus DOP), but it is a third party with unknown terms and stale data. Not used.
+
+### DOE EAGLE-I
+- Live system is restricted to government partners; public data is yearly historical only (good for backfill and baselines). The FEMA-hosted EAGLE-I ArcGIS service returned 503 (Cloudflare) when tested.
+
+---|---|
 | AES Ohio (Madison, Fayette, Champaign) | Map is loaded by JavaScript. Check browser DevTools for a Kubra `currentState`; if found, reuse the AEP code with new instance and view IDs. |
 | Ohio Edison / FirstEnergy (Marion, Morrow, Knox edges) | Map returned 503 to scripts. Needs a browser check. |
 | City of Columbus Division of Power | Site returns 403 to scripts. Needs a browser check; may need Playwright, or may be impossible. |
