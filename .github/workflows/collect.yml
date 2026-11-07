@@ -2,7 +2,9 @@ name: Collect outage data
 
 on:
   schedule:
-    - cron: "*/15 * * * *"   # GitHub may run this late or skip runs; data tolerates gaps
+    # Every 15 min, but at :07/:22/:37/:52 instead of :00/:15/:30/:45. GitHub delays or drops
+    # scheduled runs at the busiest minutes. It may still run late or skip; data tolerates gaps.
+    - cron: "7,22,37,52 * * * *"
   workflow_dispatch: {}       # lets you press "Run workflow" manually
 
 permissions:
