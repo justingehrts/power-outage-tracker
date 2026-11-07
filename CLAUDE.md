@@ -164,14 +164,6 @@ All checked with one polite request each, identifying ourselves as the tracker. 
 ### DOE EAGLE-I
 - Live system is restricted to government partners; public data is yearly historical only (good for backfill and baselines). The FEMA-hosted EAGLE-I ArcGIS service returned 503 (Cloudflare) when tested.
 
----|---|
-| AES Ohio (Madison, Fayette, Champaign) | Map is loaded by JavaScript. Check browser DevTools for a Kubra `currentState`; if found, reuse the AEP code with new instance and view IDs. |
-| Ohio Edison / FirstEnergy (Marion, Morrow, Knox edges) | Map returned 503 to scripts. Needs a browser check. |
-| City of Columbus Division of Power | Site returns 403 to scripts. Needs a browser check; may need Playwright, or may be impossible. |
-| Mid-Ohio Energy | No public outage map found. |
-| Municipal systems (e.g. Westerville) | Not on the PUCO territory map. Check AMP's member list. |
-| DOE EAGLE-I | Live system is restricted to government partners; public data is yearly historical only (good for backfill and baselines). The FEMA-hosted EAGLE-I ArcGIS service returned 503 (Cloudflare) when tested. |
-
 ---
 
 ## CSV layout (on the `data` branch)
@@ -237,3 +229,22 @@ Design for TV readability: large numbers, high contrast, dark theme option.
 
 ## Data use
 Collected from public utility outage maps for internal monitoring and newsroom use. Justin should review each utility's website terms before publishing derived maps or data on-air or online.
+
+### Terms-of-use review (read 2026-11-07; not legal advice, and terms change)
+Checked each utility's and vendor's website terms and `robots.txt`. **No data host publishes a `robots.txt` with rules** (Kubra, FirstEnergy's map host, both co-op platforms, NISC's data bucket, AES's `myprofile` server, IsMyMeterOn). Absence of rules is not permission.
+
+| Party | What its terms say |
+|---|---|
+| **AES Ohio** (`aes-ohio.com/terms-use`) | **Bans automation**: no "robot, spider, bot, web crawler, or other automated devices or mechanisms to access, use, gather information or copy any portion of the Site or the Content". Also: "Commercial use, **broadcasting** or otherwise disseminating any Content in any media without the prior written consent of AES is strictly prohibited." Caveat: the text defines the Site as `aes.com`, and the data file is on `myprofile.aes-ohio.com` (no terms or robots there), so applicability is unclear. Highest risk. |
+| **Mid-Ohio Energy** (`midohioenergy.com/terms`) | **Bans automation**: no "robot, spider, or other automatic device, process, or means to access the Website for any purpose, including monitoring or copying", and no use "for any commercial purposes" of the Website "or any services or materials available through" it. The map itself is on `ismymeteron.com` (no terms at all), so applicability is unclear. |
+| **FirstEnergy** (`firstenergycorp.com/corporate/website-terms.html`) | No bot clause. Use "solely for informational purposes or for ... reviewing and/or purchasing the Company's services"; no use, reproduction or distribution of content "for any other purpose". Reserves the right to monitor activity. The map host is `outages-oh.firstenergycorp.com` (Kubra-hosted). |
+| **AEP** (`aep.com/terms`) | No bot clause. Copying and display allowed "for your personal use only"; no copying or display "for redistribution to third parties for commercial purposes" without written permission. AEP's outage data is served from Kubra, not `aep.com`. |
+| **Consolidated Electric** (language is in its privacy policy page; no separate terms page) | Same wording as AEP: no copying or display for redistribution to third parties for commercial purposes. No bot clause. |
+| **South Central Power** (`southcentralpower.com/online-privacy-policy/terms/`) | Copyright/trademark notice and an as-is disclaimer ("if you rely on any data ... you do so at your own risk"). No bot clause. |
+| **Kubra** (`kubra.com/terms-of-use`, updated 2026-01-05) | Covers Kubra's bill presentment and payment "Services"; "legitimate business purposes only"; unauthorized access prohibited; use may be monitored. Does not mention Storm Center or outage maps, and no scraping clause. |
+| **NISC** (`nisc.coop/terms-of-use`) | Covers NISC's own corporate website only. Nothing on the hosted outage-map data. No bot clause. |
+| **IsMyMeterOn** | No terms, disclaimer or robots rules found. |
+| **City of Columbus** | **Not checked.** The site returns 403 to scripts and I will not work around that. A person should read the site's terms in a normal browser. |
+
+Reading it plainly: explicit automation bans exist only in the AES Ohio and Mid-Ohio website terms. Several others restrict commercial redistribution. **The `data` branch and the Streamlit app are public, so running them redistributes this data publicly**, which is different from internal monitoring. Facts such as customer counts may not be protectable, but that is a legal question for the station's counsel. The clean route is written permission or an official data feed from each utility.
+
